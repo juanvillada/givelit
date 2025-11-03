@@ -1,10 +1,11 @@
 """
-Download recent works for configured journals via the Crossref API.
+Journal search backed by the Europe PMC REST API.
 """
 
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Iterable, List
 
@@ -14,51 +15,80 @@ from bs4 import BeautifulSoup
 from .models import JournalConfig, Paper
 
 
-CROSSREF_API = "https://api.crossref.org/works"
-USER_AGENT = "GiveLit/0.1 (+https://github.com/jcvillada/givelit)"
+BASE_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+USER_AGENT = "GiveLit/0.2 (+https://github.com/jcvillada/givelit)"
 
 
-def _clean_abstract(raw: str | None) -> str | None:
+def _strip_html(value: str | None) -> str | None:
+    if not value:
+        return None
+    soup = BeautifulSoup(value, "lxml")
+    cleaned = soup.get_text(" ", strip=True)
+    return cleaned or None
+
+
+def _parse_authors(author_string: str | None) -> List[str]:
+    if not author_string:
+        return []
+    authors = [part.strip() for part in author_string.split(";") if part.strip()]
+    return authors
+
+
+def _parse_date(raw: str | None) -> datetime | None:
     if not raw:
         return None
-    soup = BeautifulSoup(raw, "lxml")
-    text = soup.get_text(" ", strip=True)
-    return text or None
-
-
-def _parse_author(author: dict) -> str:
-    given = author.get("given")
-    family = author.get("family")
-    if given and family:
-        return f"{given} {family}"
-    return author.get("name") or family or given or "Unknown"
-
-
-def _parse_date(date_payload: dict | None) -> datetime | None:
-    if not date_payload:
-        return None
-    parts = date_payload.get("date-parts")
-    if not parts:
-        return None
-    numbers = parts[0]
-    if not numbers:
-        return None
-    year = numbers[0]
-    month = numbers[1] if len(numbers) > 1 else 1
-    day = numbers[2] if len(numbers) > 2 else 1
     try:
-        return datetime(year, month, day, tzinfo=UTC)
+        return datetime.strptime(raw, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError:
-        return None
+        try:
+            return datetime.strptime(raw, "%Y-%m").replace(day=1, tzinfo=UTC)
+        except ValueError:
+            try:
+                return datetime.strptime(raw, "%Y").replace(month=1, day=1, tzinfo=UTC)
+            except ValueError:
+                return None
 
 
-class CrossrefFetcher:
+def _build_query(journal: JournalConfig, keywords: Iterable[str], days_back: int) -> str:
+    quoted_terms = []
+    for keyword in keywords:
+        term = keyword.strip()
+        if not term:
+            continue
+        if " " in term:
+            quoted_terms.append(f'"{term}"')
+        else:
+            quoted_terms.append(term)
+
+    if not quoted_terms:
+        raise ValueError("At least one keyword is required.")
+
+    keyword_query = " AND ".join(quoted_terms)
+    journal_clause = f'JOURNAL:"{journal.container_title}"'
+    segments = [keyword_query, journal_clause]
+
+    if days_back > 0:
+        end_date = datetime.now(tz=UTC).date()
+        start_date = end_date - timedelta(days=days_back)
+        segments.append(f'FIRST_PDATE:[{start_date} TO {end_date}]')
+
+    return " ".join(segments)
+
+
+@dataclass
+class EuropePMCFetchResult:
+    journal: JournalConfig
+    papers: List[Paper]
+
+
+class EuropePMCFetcher:
     """
-    Retrieve articles from Crossref for a set of journals concurrently.
+    Retrieve journal articles from Europe PMC concurrently.
     """
 
-    def __init__(self, timeout: float = 10.0) -> None:
+    def __init__(self, timeout: float = 15.0, mailto: str | None = None) -> None:
         self._timeout = timeout
+        self._mailto = mailto or "givelit@example.com"
 
     @property
     def timeout(self) -> float:
@@ -70,21 +100,17 @@ class CrossrefFetcher:
         keywords: List[str],
         days_back: int,
         max_results: int,
-    ) -> List[Paper]:
+    ) -> List[EuropePMCFetchResult]:
         async with httpx.AsyncClient(
             timeout=self._timeout,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": USER_AGENT},
         ) as client:
             tasks = [
                 self.fetch_for_journal(client, journal, keywords, days_back, max_results)
                 for journal in journals
             ]
-            results = await asyncio.gather(*tasks, return_exceptions=False)
-
-        papers: List[Paper] = []
-        for chunk in results:
-            papers.extend(chunk)
-        return papers
+            results = await asyncio.gather(*tasks)
+        return results
 
     async def fetch_for_journal(
         self,
@@ -93,52 +119,52 @@ class CrossrefFetcher:
         keywords: List[str],
         days_back: int,
         max_results: int,
-    ) -> List[Paper]:
-        query = " ".join(keywords).strip()
-        if not query:
-            raise ValueError("At least one keyword is required.")
+    ) -> EuropePMCFetchResult:
+        query = _build_query(journal, keywords, days_back)
+        page_size = max(25, min(max_results * 3, 200))
 
-        filters = [f"container-title:{journal.container_title}"]
-        if days_back > 0:
-            cutoff = (datetime.now(tz=UTC) - timedelta(days=days_back)).date()
-            filters.append(f"from-pub-date:{cutoff.isoformat()}")
-
-        rows = max(20, min(max_results * 3, 150))
         params = {
             "query": query,
-            "select": "title,author,issued,URL,abstract,score,container-title",
-            "sort": "score",
-            "order": "desc",
-            "rows": str(rows),
-            "filter": ",".join(filters),
+            "pageSize": str(page_size),
+            "format": "json",
+            "resultType": "core",
         }
 
-        response = await client.get(CROSSREF_API, params=params)
+        response = await client.get(BASE_URL, params=params)
         response.raise_for_status()
-
         payload = response.json()
-        items = payload.get("message", {}).get("items", [])
+
+        results = payload.get("resultList", {}).get("result", [])
 
         papers: List[Paper] = []
-        for item in items:
-            title_candidates = item.get("title") or ["Untitled"]
-            title = title_candidates[0]
+        for item in results:
+            title = _strip_html(item.get("title")) or "Untitled"
+            abstract = _strip_html(item.get("abstractText"))
+            authors = _parse_authors(item.get("authorString"))
+            publication_date = _parse_date(item.get("firstPublicationDate"))
 
-            authors_payload = item.get("author") or []
-            authors = [_parse_author(author) for author in authors_payload]
+            url: str = ""
+            doi = item.get("doi")
+            if doi:
+                url = f"https://doi.org/{doi}"
+            elif item.get("pmcid"):
+                url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{item['pmcid']}"
+            elif item.get("id"):
+                # Fallback to Europe PMC article page
+                source = item.get("source", "MED")
+                url = f"https://www.ebi.ac.uk/europepmc/article/{source}/{item['id']}"
 
-            published = _parse_date(item.get("published") or item.get("issued"))
-            abstract = _clean_abstract(item.get("abstract"))
+            score = float(item.get("score", 0.0)) if item.get("score") else None
 
             paper = Paper(
                 journal=journal.name,
                 title=title,
-                url=item.get("URL") or "",
-                published=published,
+                url=url,
+                published=publication_date,
                 authors=authors,
                 summary=abstract,
-                source_score=item.get("score"),
+                source_score=score,
             )
             papers.append(paper)
 
-        return papers[:max_results * 2]
+        return EuropePMCFetchResult(journal=journal, papers=papers[: max_results * 2])

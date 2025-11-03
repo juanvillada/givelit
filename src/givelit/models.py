@@ -12,7 +12,7 @@ from typing import List, Optional
 @dataclass(frozen=True)
 class JournalConfig:
     """
-    Represents a search target that can be translated into a Crossref query.
+    Represents a search target that can be translated into a Europe PMC query.
     """
 
     key: str
@@ -23,7 +23,7 @@ class JournalConfig:
 @dataclass
 class Paper:
     """
-    Normalised representation of an article returned by Crossref.
+    Normalised representation of an article returned by Europe PMC.
     """
 
     journal: str
@@ -34,9 +34,9 @@ class Paper:
     summary: Optional[str] = None
     relevance: float = 0.0
     source_score: Optional[float] = None
+    age_days: Optional[int] = None
 
     def formatted_date(self) -> str:
         if not self.published:
             return "Unknown"
         return self.published.strftime("%Y-%m-%d")
-

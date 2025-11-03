@@ -2,3 +2,15 @@
 # pixi environments
 .pixi
 *.egg-info
+
+# all python cache files and intermediate files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints
+*.so
+*.dylib
+*.pyc
+*.pyc
+giveLit-output*.html
