@@ -35,6 +35,7 @@ class Paper:
     relevance: float = 0.0
     source_score: Optional[float] = None
     age_days: Optional[int] = None
+    match_count: int = 0
 
     def formatted_date(self) -> str:
         if not self.published:

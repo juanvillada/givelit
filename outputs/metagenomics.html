@@ -24,6 +24,15 @@
             font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
             letter-spacing: 0.03em;
         }
+        .meta-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }
+        .meta-list li {
+            margin: 0.25rem 0;
+            color: var(--muted);
+        }
         .summary {
             margin-bottom: 1.8rem;
         }
@@ -51,8 +60,13 @@
             font-size: 2rem;
             color: var(--accent);
         }
-        header.page-header p {
-            margin: 0.25rem 0;
+        .coverage-groups {
+            margin-top: 1.5rem;
+        }
+        .coverage-heading {
+            margin: 1.6rem 0 0.6rem 0;
+            font-size: 1.3rem;
+            color: var(--accent);
         }
         .card {
             padding: 1.2rem;
@@ -143,29 +157,106 @@
 <body>
     <header class="page-header">
         <h1>GiveLit Radar</h1>
-        <p>Keywords: &quot;metagenomics&quot;, &quot;binning&quot;</p>
-        <p>Journals: Cell, Cell Genomics, Cell Host &amp; Microbe, Cell Metabolism, Cell Reports, Cell Systems, Communications Biology, Current Biology, ISME Communications, mBio, Molecular Biology and Evolution, mSystems, Nature, Nature Biotechnology, Nature Communications, Nature Ecology &amp; Evolution, Nature Machine Intelligence, Nature Methods, Nature Microbiology, Nature Reviews Microbiology, Science, Science Advances, The ISME Journal, Trends in Biotechnology, Trends in Ecology &amp; Evolution, Trends in Microbiology</p>
-        <p>Generated: 2025-11-03 22:36 UTC</p>
-        <p class="missing">No recent matches for: Nature, Cell Reports, Current Biology, Nature Machine Intelligence, Cell Host &amp; Microbe, mBio, Nature Biotechnology, mSystems, Cell Systems, Nature Methods, Cell, Science Advances, Cell Metabolism, Trends in Biotechnology, Communications Biology, Science, Nature Microbiology, Trends in Microbiology, ISME Communications, Trends in Ecology &amp; Evolution, Cell Genomics, Nature Reviews Microbiology, Nature Ecology &amp; Evolution, The ISME Journal, Molecular Biology and Evolution</p>
+        <ul class="meta-list">
+            <li>✦ Keywords: &quot;metagenomics&quot;, &quot;microbiome&quot;, &quot;sequencing&quot;</li><li>✦ Journals (3): Nature Microbiology, Science, Cell Reports</li><li>✦ Days window: last 360 days</li><li>✦ Limit: 6</li><li>✦ Sort: Score</li><li>✦ Format: WEB</li>
+            <li>✦ Generated: 2025-11-03 23:00 UTC</li>
+            
+        </ul>
     </header>
     <main>
-        <section class="summary"><h2>Journal summary</h2><pre class="summary-plot">Nature Communications  | ██████████████████ 1 paper, avg 28.36</pre></section>
-        <article class="card">
+        <section class="summary"><h2>Journal summary — full coverage</h2><pre class="summary-plot">Nature Microbiology    | ██████████████████ 3 papers, avg 40.56</pre></section><section class="summary"><h2>Journal summary — near coverage</h2><pre class="summary-plot">Nature Microbiology    | ██████████████████ 1 paper, avg 36.32
+Cell Reports           | ██████████████████ 1 paper, avg 32.12</pre></section><section class="summary"><h2>Journal summary — partial coverage</h2><pre class="summary-plot">Nature Microbiology    | ██████████████████ 1 paper, avg 27.65</pre></section>
+        <section class="coverage-groups"> <h2 class="coverage-heading">Full coverage (all keywords matched)</h2> <article class="card">
             <header>
-                <h2><a href="https://doi.org/10.1038/s41467-025-64916-8" target="_blank" rel="noopener">LorBin: efficient binning of long-read metagenomes by multiscale adaptive clustering and evaluation.</a></h2>
+                <h2><a href="https://doi.org/10.1038/s41564-025-02119-z" target="_blank" rel="noopener">Genome-resolved metagenomics reveals microbiome diversity across 48 tick species.</a></h2>
                 <div class="meta">
-                    <span class="journal">Journal: Nature Communications</span>
+                    <span class="journal">Journal: Nature Microbiology</span>
                     <span class="separator">|</span>
-                    <span class="date">2025-10-24</span>
+                    <span class="date">2025-09-23</span>
                     <span class="separator">|</span>
-                    <span class="age">Days ago: 10</span>
+                    <span class="age">Days ago: 41</span>
                     <span class="separator">|</span>
-                    <span class="score"><span class="badge">GiveLit score</span><span class="value">28.36</span></span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">44.41</span></span>
                 </div>
             </header>
-            <p class="authors">Xue W, Liu Z, Zhang Y, Raza W, Li Y, Jiang L, Tao Y, Qian J, Alexandre J, Zhao FJ, Xu Y, Sedlazeck F, Shen Q, Jiang G, Wei Z.</p>
-            <p class="summary">Long-read sequencing has transformed metagenomics and improved the quality of metagenome-assembled genomes (MAGs). However, current binning methods struggle with identifying unknown species and managing imbalanced species distributions. Here, we present LorBin, an unsupervised binner specially designed to reconstruct MAGs in natural microbiomes. LorBin deploys a two-stage multiscale adaptive DBSCAN and BIRCH clustering with evaluation decision models using single-copy genes to maximize MAG recovery. LorBin outperforms six competing binners in both simulated and real microbiomes, including oral, gut, and marine samples. LorBin generated 15-189% more high-quality MAGs with high serendipity and identified 2.4-17 times more novel taxa than state-of-the-art binning methods. Together, LorBin is a promising long-read metagenomic binner for accessing species-rich samples containing unknown taxa and is efficient at retrieving more complete genomes from imbalanced natural microbiomes.</p>
-        </article>
+            <p class="authors">Du LF, Shi W, Cui XM, Fan H, Jiang JF, Bian C, Ye RZ, Wang Q, Zhang MZ, Yuan TT, Xia LY, Ruan XD, Chang QC, Du CH, Que TC, Wang X, Han XH, Yang TC, Jiang BG, Chen JY, Wang XR, Tan LF, Liu YW, Deng LL, Liu Y, Zhu Y, Pan YS, Wang N, Lin ZT, Li LF, Li C, Shen SJ, Liu YT, Tian D, Han XY, Wang J, Wang YF, Gao WY, Li YY, Xiong T, Wang TH, Shi XY, Zhu DY, Zhu JG, Wang CC, Shi WQ, Zhan L, Liu ZH, Feng D, Zhao L, Sun Y, Tick Genome and Microbiome Consortium (TIGMIC), Wang J, Jia N, Zhao F, Cao WC.</p>
+            <p class="summary">Ticks are arthropod vectors capable of transmitting a wide spectrum of pathogens affecting humans and animals. However, we have relatively limited information of their genomic characteristics and the diversity of associated microbiomes. Here we used long- and short-read sequencing on 1,479 samples from 48 tick species across eight genera from China to determine their genome and associated pathogens and microbiome. Through de novo assembly, we reconstructed 7,783 bacterial genomes representing 1,373 bacterial species, of which, 712 genomes represented 32 potentially pathogenic species. Computational analysis found nutritional endosymbionts to be prevalent and highly specific to tick genera. The microbiome genome-wide association study revealed host genetic variants linked to pathogen diversity, abundance and key biological pathways essential to tick biology, including blood-feeding and pathogen invasion. These findings provide a resource for studying the host-microbe interactions within ticks, paving the way for strategies to control tick populations and tick-borne diseases.</p>
+        </article> <article class="card">
+            <header>
+                <h2><a href="https://doi.org/10.1038/s41564-025-01973-1" target="_blank" rel="noopener">Seed-borne bacteria drive wheat rhizosphere microbiome assembly via niche partitioning and facilitation.</a></h2>
+                <div class="meta">
+                    <span class="journal">Journal: Nature Microbiology</span>
+                    <span class="separator">|</span>
+                    <span class="date">2025-03-26</span>
+                    <span class="separator">|</span>
+                    <span class="age">Days ago: 222</span>
+                    <span class="separator">|</span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">40.32</span></span>
+                </div>
+            </header>
+            <p class="authors">Garrido-Sanz D, Keel C.</p>
+            <p class="summary">Microbial communities play a crucial role in supporting plant health and productivity. Reproducible, natural plant-associated microbiomes can help disentangle microbial dynamics across time and space. Here, using a sequential propagation strategy, we generated a complex and reproducible wheat rhizosphere microbiome (RhizCom) to study successional dynamics and interactions between the soil and heritable seed-borne rhizosphere microbiomes (SbRB) in a microcosm. Using 16S rRNA sequencing and genome-resolved shotgun metagenomics, we find that SbRB surpassed native soil microbes as the dominant rhizosphere-associated microbiome source. SbRB genomes were enriched in host-associated traits including degradation of key saccharide (niche partitioning) and cross-feeding interactions that supported partner strains (niche facilitation). In vitro co-culture experiments confirmed that helper SbRB strains facilitated the growth of partner bacteria on disaccharides as sole carbon source. These results reveal the importance of seed microbiota dynamics in microbial succession and community assembly, which could inform strategies for crop microbiome manipulation.</p>
+        </article> <article class="card">
+            <header>
+                <h2><a href="https://doi.org/10.1038/s41564-024-01914-4" target="_blank" rel="noopener">SAMPL-seq reveals micron-scale spatial hubs in the human gut microbiome.</a></h2>
+                <div class="meta">
+                    <span class="journal">Journal: Nature Microbiology</span>
+                    <span class="separator">|</span>
+                    <span class="date">2025-02-03</span>
+                    <span class="separator">|</span>
+                    <span class="age">Days ago: 273</span>
+                    <span class="separator">|</span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">36.96</span></span>
+                </div>
+            </header>
+            <p class="authors">Richardson M, Zhao S, Lin L, Sheth RU, Qu Y, Lee J, Moody T, Ricaurte D, Huang Y, Velez-Cortes F, Urtecho G, Wang HH.</p>
+            <p class="summary">The local arrangement of microbes can profoundly impact community assembly, function and stability. However, our understanding of the spatial organization of the human gut microbiome at the micron scale is limited. Here we describe a high-throughput and streamlined method called Split-And-pool Metagenomic Plot-sampling sequencing (SAMPL-seq) to capture spatial co-localization in a complex microbial consortium. The method obtains microbial composition of micron-scale subcommunities through split-and-pool barcoding. SAMPL-seq analysis of the healthy human gut microbiome identified bacterial taxa pairs that consistently co-occurred both over time and across multiple individuals. These co-localized microbes organize into spatially distinct groups or &#x27;spatial hubs&#x27; dominated by Bacteroidaceae, Ruminococcaceae and Lachnospiraceae families. Using inulin as a dietary perturbation, we observed reversible spatial rearrangement of the gut microbiome where specific taxa form new local partnerships. Spatial metagenomics using SAMPL-seq can unlock insights into microbiomes at the micron scale.</p>
+        </article> <h2 class="coverage-heading">Near full coverage</h2> <article class="card">
+            <header>
+                <h2><a href="https://doi.org/10.1038/s41564-025-01959-z" target="_blank" rel="noopener">Metabolic modelling reveals the aging-associated decline of host-microbiome metabolic interactions in mice.</a></h2>
+                <div class="meta">
+                    <span class="journal">Journal: Nature Microbiology</span>
+                    <span class="separator">|</span>
+                    <span class="date">2025-03-26</span>
+                    <span class="separator">|</span>
+                    <span class="age">Days ago: 222</span>
+                    <span class="separator">|</span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">36.32</span></span>
+                </div>
+            </header>
+            <p class="authors">Best L, Dost T, Esser D, Flor S, Gamarra AM, Haase M, Kadibalban AS, Marinos G, Walker A, Zimmermann J, Simon R, Schmidt S, Taubenheim J, Künzel S, Häsler R, Franzenburg S, Groth M, Waschina S, Rosenstiel P, Sommer F, Witte OW, Schmitt-Kopplin P, Baines JF, Frahm C, Kaleta C.</p>
+            <p class="summary">Aging is accompanied by considerable changes in the gut microbiome, yet the molecular mechanisms driving aging and the role of the microbiome remain unclear. Here we combined metagenomics, transcriptomics and metabolomics from aging mice with metabolic modelling to characterize host-microbiome interactions during aging. Reconstructing integrated metabolic models of host and 181 mouse gut microorganisms, we show a complex dependency of host metabolism on known and previously undescribed microbial interactions. We observed a pronounced reduction in metabolic activity within the aging microbiome accompanied by reduced beneficial interactions between bacterial species. These changes coincided with increased systemic inflammation and the downregulation of essential host pathways, particularly in nucleotide metabolism, predicted to rely on the microbiota and critical for preserving intestinal barrier function, cellular replication and homeostasis. Our results elucidate microbiome-host interactions that potentially influence host aging processes. These pathways could serve as future targets for the development of microbiome-based anti-aging therapies.</p>
+        </article> <article class="card">
+            <header>
+                <h2><a href="https://doi.org/10.1016/j.celrep.2025.115684" target="_blank" rel="noopener">Live bacteria in gut microbiome dictate asthma onset triggered by environmental particles via modulation of DNA methylation in dendritic cells.</a></h2>
+                <div class="meta">
+                    <span class="journal">Journal: Cell Reports</span>
+                    <span class="separator">|</span>
+                    <span class="date">2025-05-13</span>
+                    <span class="separator">|</span>
+                    <span class="age">Days ago: 174</span>
+                    <span class="separator">|</span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">32.12</span></span>
+                </div>
+            </header>
+            <p class="authors">Ramar M, Wiscovitch-Russo R, Yano N, Singh H, Lamere E, Short M, Gonzalez-Juarbe N, Fedulov AV.</p>
+            <p class="summary">Despite broad knowledge of the pathogenesis, our understanding of the origin of allergy and asthma remains poor, preventing etiotropic treatments. The gut microbiome is seen to be altered in asthmatics; however, proof of causality of the microbiome alterations is lacking. We report on gut microbiome transplantation (GMT) from mice predisposed to asthma by maternal exposure to pro-allergy environmental particles into naive recipients. This GMT confers asthma predisposition, and the effect is abrogated by gamma sterilization of the transplant material or by co-administration of antibacterials, indicating that viable bacteria are mediating the effect. Metagenomics identifies key changes in the &quot;pro-asthma&quot; microbiome, and metabolomics links the identified species to altered production of butyrate known to act on immune cells and epigenetic mechanisms. We further show that transplant recipients develop DNA methylation alterations in dendritic cells. Finally, dendritic cells with an altered methylome present allergen to T cells, and this effect is abrogated by an epigenetically acting drug in vitro.</p>
+        </article> <h2 class="coverage-heading">Partial coverage</h2> <article class="card">
+            <header>
+                <h2><a href="https://doi.org/10.1038/s41564-025-02112-6" target="_blank" rel="noopener">Learning ecosystem-scale dynamics from microbiome data with MDSINE2.</a></h2>
+                <div class="meta">
+                    <span class="journal">Journal: Nature Microbiology</span>
+                    <span class="separator">|</span>
+                    <span class="date">2025-09-09</span>
+                    <span class="separator">|</span>
+                    <span class="age">Days ago: 55</span>
+                    <span class="separator">|</span>
+                    <span class="score"><span class="badge">GiveLit score</span><span class="value">27.65</span></span>
+                </div>
+            </header>
+            <p class="authors">Gibson TE, Kim Y, Acharya S, Kaplan DE, DiBenedetto N, Lavin R, Berger B, Allegretti JR, Bry L, Gerber GK.</p>
+            <p class="summary">Although dynamical systems models are a powerful tool for analysing microbial ecosystems, challenges in learning these models from complex microbiome datasets and interpreting their outputs limit use. We introduce the Microbial Dynamical Systems Inference Engine 2 (MDSINE2), a Bayesian method that learns compact and interpretable ecosystems-scale dynamical systems models from microbiome timeseries data. Microbial dynamics are modelled as stochastic processes driven by interaction modules, or groups of microbes with similar interaction structure and responses to perturbations, and additionally, noise characteristics of data are modelled. Our open-source software package provides multiple tools for interpreting learned models, including phylogeny/taxonomy of modules, and stability, interaction topology and keystoneness. To benchmark MDSINE2, we generated microbiome timeseries data from two murine cohorts that received faecal transplants from human donors and were then subjected to dietary and antibiotic perturbations. MDSINE2 outperforms state-of-the-art methods and identifies interaction modules that provide insights into ecosystems-scale interactions in the gut microbiome.</p>
+        </article> </section>
     </main>
     <footer>
         Crafted with GiveLit — stay on top of the literature.

@@ -206,12 +206,21 @@ def radar(
 
     journal_names = [journal.name for journal in journal_configs]
 
+    option_context = {
+        "limit": str(max_results),
+        "days": "all time" if days == 0 else f"last {days} day{'s' if days != 1 else ''}",
+        "sort": sort_strategy.value.title(),
+        "format": report_format.value.upper(),
+        "journal_count": str(len(journal_names)),
+    }
+
     if report_format is ReportFormat.CLI:
         render_cli_report(
             console,
             top_papers,
             keyword_list,
             journal_names,
+            option_context,
             missing_journals=empty_journals,
         )
     else:
@@ -231,6 +240,7 @@ def radar(
             keyword_list,
             journal_names,
             output,
+            option_context,
             missing_journals=empty_journals,
         )
         console.print(f"[green]Report saved to[/green] {destination}")

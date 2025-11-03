@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from html import escape
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Dict
 
 from rich import box
 from rich.console import Console
@@ -45,11 +45,35 @@ def _ascii_plot(rows: Sequence[tuple[str, int, float]], width: int = 18) -> list
     return lines
 
 
+def _coverage_level(paper: Paper, total_keywords: int) -> str:
+    if total_keywords <= 0:
+        return "unmatched"
+    matched = paper.match_count
+    if matched >= total_keywords:
+        return "full"
+    if matched >= max(total_keywords - 1, 1):
+        return "near"
+    if matched >= 1:
+        return "partial"
+    return "single"
+
+
+def _group_by_coverage(papers: Sequence[Paper], total_keywords: int) -> Dict[str, list[Paper]]:
+    groups: Dict[str, list[Paper]] = {"full": [], "near": [], "partial": [], "single": []}
+    for paper in papers:
+        level = _coverage_level(paper, total_keywords)
+        if level not in groups:
+            groups[level] = []
+        groups[level].append(paper)
+    return {level: groups[level] for level in ["full", "near", "partial", "single"] if groups[level]}
+
+
 def render_cli_report(
     console: Console,
     papers: Sequence[Paper],
     keywords: Iterable[str],
     journals: Iterable[str],
+    options: dict[str, str] | None = None,
     missing_journals: Sequence[str] | None = None,
 ) -> None:
     """
@@ -58,19 +82,35 @@ def render_cli_report(
 
     header = Text("GiveLit — recent literature radar", style="bold green")
     console.print(header)
+
+    options = options or {}
+    keywords_list = list(keywords)
+    journals_list = list(journals)
+    bullet = "✦"
+
+    console.print(Text(f"{bullet} Keywords: {', '.join(f'\"{kw}\"' for kw in keywords_list)}", style="cyan"))
+    journal_count = options.get('journal_count', str(len(journals_list)))
     console.print(
         Text(
-            f"Keywords: {', '.join(f'\"{kw}\"' for kw in keywords)} | Journals: {', '.join(journals)}",
-            style="dim",
+            f"{bullet} Journals ({journal_count}): {', '.join(f'\"{name}\"' for name in journals_list)}",
+            style="magenta",
         )
     )
+    console.print(Text(f"{bullet} Days window: {options.get('days', 'n/a')}", style="cyan"))
+    console.print(Text(f"{bullet} Limit: {options.get('limit', 'n/a')}", style="cyan"))
+    console.print(Text(f"{bullet} Sort: {options.get('sort', 'score')}", style="cyan"))
+    console.print(Text(f"{bullet} Format: {options.get('format', 'CLI')}", style="cyan"))
+    console.print()
 
-    summary_rows = _ascii_plot(_summarise_by_journal(papers))
-    if summary_rows:
-        console.print(Text("Journal summary", style="bold cyan"))
-        for line in summary_rows:
-            console.print(Text(line, style="green"))
-        console.print()
+    total_keywords = len(keywords_list)
+    groups = _group_by_coverage(papers, total_keywords)
+
+    coverage_titles = {
+        "full": "Full coverage (all {n} keyword{plural} matched)",
+        "near": "Near full coverage ({matched_text})",
+        "partial": "Partial coverage ({matched_text})",
+        "single": "Single keyword coverage ({matched_text})",
+    }
 
     if not papers:
         console.print(Text("No papers matched the filters.", style="yellow"))
@@ -83,43 +123,61 @@ def render_cli_report(
             )
         return
 
-    table = Table(
-        show_lines=False,
-        box=box.SIMPLE_HEAD,
-        header_style="bold cyan",
-        padding=(0, 1),
-        title="Top Matches",
-    )
-    table.add_column("Journal", style="magenta", no_wrap=True)
-    table.add_column("Title", style="white", overflow="fold")
-    table.add_column("Date", style="green", no_wrap=True)
-    table.add_column("GiveLit score", justify="right", style="bold cyan")
-    table.add_column("Days ago", justify="right", style="cyan")
-    table.add_column("Authors", style="dim", overflow="fold")
+    if groups:
+        console.print(Text("Coverage summary", style="bold cyan"))
+        for level in ["full", "near", "partial", "single"]:
+            items = groups.get(level)
+            if not items:
+                continue
+            ascii_rows = _ascii_plot(_summarise_by_journal(items))
+            if not ascii_rows:
+                continue
+            console.print(Text(f"{coverage_titles.get(level, level.title())}", style="bold magenta"))
+            for line in ascii_rows:
+                console.print(Text(line, style="green"))
+            console.print()
 
-    for paper in papers:
-        title = Text(paper.title.strip() or "Untitled")
-        if paper.url:
-            title.stylize(f"link {paper.url}")
-        authors = ", ".join(paper.authors[:4])
-        if len(paper.authors) > 4:
-            authors += ", et al."
-
-        score_str = f"{paper.relevance:.2f}"
-        age_str = "—"
-        if paper.age_days is not None:
-            age_str = str(paper.age_days)
-
-        table.add_row(
-            paper.journal,
-            title,
-            paper.formatted_date(),
-            score_str,
-            age_str,
-            authors or "—",
+    for level, items in groups.items():
+        title = coverage_titles.get(level, level.title())
+        table = Table(
+            show_lines=False,
+            box=box.SIMPLE_HEAD,
+            header_style="bold cyan",
+            padding=(0, 1),
+            title=title,
         )
+        table.add_column("Journal", style="magenta", no_wrap=True)
+        table.add_column("Title", style="white", overflow="fold")
+        table.add_column("Date", style="green", no_wrap=True)
+        table.add_column("GiveLit score", justify="right", style="bold cyan")
+        table.add_column("Days ago", justify="right", style="cyan")
+        table.add_column("Authors", style="dim", overflow="fold")
 
-    console.print(table)
+        for paper in items:
+            row_title = Text(paper.title.strip() or "Untitled")
+            if paper.url:
+                row_title.stylize(f"link {paper.url}")
+            authors = ", ".join(paper.authors[:4])
+            if len(paper.authors) > 4:
+                authors += ", et al."
+
+            score_str = f"{paper.relevance:.2f}"
+            age_str = "—"
+            if paper.age_days is not None:
+                age_str = str(paper.age_days)
+
+            table.add_row(
+                paper.journal,
+                row_title,
+                paper.formatted_date(),
+                score_str,
+                age_str,
+                authors or "—",
+            )
+
+        console.print(table)
+        console.print()
+
     if missing_journals:
         console.print(
             Text(
@@ -134,6 +192,7 @@ def write_html_report(
     keywords: Iterable[str],
     journals: Iterable[str],
     output_path: Path,
+    options: dict[str, str] | None = None,
     missing_journals: Sequence[str] | None = None,
 ) -> Path:
     """
@@ -143,39 +202,72 @@ def write_html_report(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     generated = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    keywords_str = escape(", ".join(f'"{kw}"' for kw in keywords))
-    journals_str = escape(", ".join(journals))
+    options = options or {}
+    keywords_list = list(keywords)
+    journals_list = list(journals)
+    keywords_display = ", ".join(f'"{kw}"' for kw in keywords_list)
+    journals_display = ", ".join(journals_list)
 
-    summary_section = ""
-    summary_rows = _ascii_plot(_summarise_by_journal(papers))
-    if summary_rows:
-        summary_body = escape("\n".join(summary_rows))
-        summary_section = (
+    meta_entries = [
+        f"✦ Keywords: {keywords_display}",
+        f"✦ Journals ({options.get('journal_count', str(len(journals_list)))}): {', '.join(f'\"{name}\"' for name in journals_list)}",
+        f"✦ Days window: {options.get('days', 'n/a')}",
+        f"✦ Limit: {options.get('limit', 'n/a')}",
+        f"✦ Sort: {options.get('sort', 'score')}",
+        f"✦ Format: {options.get('format', 'web').upper()}",
+    ]
+    meta_list = "".join(f"<li>{escape(item)}</li>" for item in meta_entries)
+
+    coverage_groups = _group_by_coverage(papers, len(keywords_list))
+    summary_sections: list[str] = []
+    for level, items in coverage_groups.items():
+        rows = _ascii_plot(_summarise_by_journal(items))
+        if not rows:
+            continue
+        summary_body = escape("\n".join(rows))
+        title_map = {
+            "full": "Journal summary — full coverage",
+            "near": "Journal summary — near coverage",
+            "partial": "Journal summary — partial coverage",
+            "single": "Journal summary — single keyword",
+        }
+        summary_sections.append(
             "<section class=\"summary\">"
-            "<h2>Journal summary</h2>"
+            f"<h2>{title_map.get(level, level.title())}</h2>"
             f"<pre class=\"summary-plot\">{summary_body}</pre>"
             "</section>"
         )
+    summary_section = "".join(summary_sections)
 
-    cards = []
-    for paper in papers:
-        authors = ", ".join(paper.authors[:6]) or "Unknown authors"
-        if len(paper.authors) > 6:
-            authors += ", et al."
+    cards: list[str] = []
+    if coverage_groups:
+        cards.append("<section class=\"coverage-groups\">")
+    for level, items in coverage_groups.items():
+        title_map = {
+            "full": "Full coverage (all keywords matched)",
+            "near": "Near full coverage",
+            "partial": "Partial coverage",
+            "single": "Single keyword coverage",
+        }
+        cards.append(f"<h2 class=\"coverage-heading\">{title_map.get(level, level.title())}</h2>")
+        for paper in items:
+            authors = ", ".join(paper.authors[:6]) or "Unknown authors"
+            if len(paper.authors) > 6:
+                authors += ", et al."
 
-        summary = paper.summary or "No abstract available."
-        safe_summary = escape(summary)
-        title_text = escape(paper.title)
-        url = escape(paper.url, quote=True)
-        journal_label = escape(paper.journal)
-        authors_text = escape(authors)
-        date_text = escape(paper.formatted_date())
-        if paper.age_days is not None:
-            age_text = escape(f"Days ago: {paper.age_days}")
-        else:
-            age_text = escape("Days ago: unknown")
+            summary = paper.summary or "No abstract available."
+            safe_summary = escape(summary)
+            title_text = escape(paper.title)
+            url = escape(paper.url, quote=True)
+            journal_label = escape(paper.journal)
+            authors_text = escape(authors)
+            date_text = escape(paper.formatted_date())
+            if paper.age_days is not None:
+                age_text = escape(f"Days ago: {paper.age_days}")
+            else:
+                age_text = escape("Days ago: unknown")
 
-        card = f"""
+            card = f"""
         <article class="card">
             <header>
                 <h2><a href="{url}" target="_blank" rel="noopener">{title_text}</a></h2>
@@ -193,12 +285,14 @@ def write_html_report(
             <p class="summary">{safe_summary}</p>
         </article>
         """
-        cards.append(card.strip())
+            cards.append(card.strip())
+    if coverage_groups:
+        cards.append("</section>")
 
-    missing_block = ""
+    missing_entry = ""
     if missing_journals:
         missing_list = escape(", ".join(missing_journals))
-        missing_block = f'<p class="missing">No recent matches for: {missing_list}</p>'
+        missing_entry = f'<li class="missing">✦ No recent matches for: {missing_list}</li>'
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -225,6 +319,15 @@ def write_html_report(
             color: var(--text);
             font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
             letter-spacing: 0.03em;
+        }}
+        .meta-list {{
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }}
+        .meta-list li {{
+            margin: 0.25rem 0;
+            color: var(--muted);
         }}
         .summary {{
             margin-bottom: 1.8rem;
@@ -253,8 +356,13 @@ def write_html_report(
             font-size: 2rem;
             color: var(--accent);
         }}
-        header.page-header p {{
-            margin: 0.25rem 0;
+        .coverage-groups {{
+            margin-top: 1.5rem;
+        }}
+        .coverage-heading {{
+            margin: 1.6rem 0 0.6rem 0;
+            font-size: 1.3rem;
+            color: var(--accent);
         }}
         .card {{
             padding: 1.2rem;
@@ -345,10 +453,11 @@ def write_html_report(
 <body>
     <header class="page-header">
         <h1>GiveLit Radar</h1>
-        <p>Keywords: {keywords_str}</p>
-        <p>Journals: {journals_str}</p>
-        <p>Generated: {generated}</p>
-        {missing_block}
+        <ul class="meta-list">
+            {meta_list}
+            <li>✦ Generated: {generated}</li>
+            {missing_entry}
+        </ul>
     </header>
     <main>
         {summary_section if summary_section else ''}

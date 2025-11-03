@@ -14,3 +14,6 @@ __pycache__/
 *.pyc
 *.pyc
 giveLit-output*.html
+src/givelit/__pycache__/
+outputs/*
+outputs/metagenomics.html

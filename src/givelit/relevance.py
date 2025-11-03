@@ -58,5 +58,6 @@ def compute_relevance(
         decay = 1.0 / (1.0 + age_days)
         score += freshness * 6.0 + decay * 4.0
 
+    paper.match_count = matched_keywords
     paper.relevance = round(score, 2)
     return paper.relevance
