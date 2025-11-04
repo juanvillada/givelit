@@ -22,7 +22,7 @@ from rich.progress import (
 )
 
 from .fetcher import EuropePMCFetchResult, EuropePMCFetcher, USER_AGENT
-from .journals import resolve_journals
+from .journals import resolve_journals, DEFAULT_JOURNALS
 from .models import JournalConfig, Paper
 from .relevance import compute_relevance
 from .reporting import render_cli_report, write_html_report
@@ -40,6 +40,11 @@ class SortStrategy(str, Enum):
     SCORE = "score"
     RECENCY = "recency"
     JOURNAL = "journal"
+
+
+class CoverageFilter(str, Enum):
+    ALL = "all"
+    FULL = "full"
 
 
 def _normalise_keywords(keywords: Sequence[str]) -> List[str]:
@@ -61,6 +66,27 @@ def _sort_papers(papers: List[Paper], strategy: SortStrategy) -> List[Paper]:
         key = lambda p: (p.journal.lower(), -p.relevance, age_value(p))
 
     return sorted(papers, key=key)
+
+
+def _coverage_level(paper: Paper, total_keywords: int) -> str:
+    if total_keywords <= 0:
+        return "full" if paper.match_count > 0 else "single"
+    matched = paper.match_count
+    if matched >= total_keywords:
+        return "full"
+    if matched >= max(total_keywords - 1, 1):
+        return "near"
+    if matched >= 1:
+        return "partial" if total_keywords > 1 else "single"
+    return "single"
+
+
+def _bucket_by_coverage(papers: List[Paper], total_keywords: int) -> dict[str, List[Paper]]:
+    buckets = {"full": [], "near": [], "partial": [], "single": []}
+    for paper in papers:
+        level = _coverage_level(paper, total_keywords)
+        buckets.setdefault(level, []).append(paper)
+    return {level: buckets[level] for level in ["full", "near", "partial", "single"] if buckets.get(level)}
 
 
 async def _fetch_with_progress(
@@ -155,6 +181,19 @@ def radar(
         case_sensitive=False,
         help="Order results by score, recency, or journal name.",
     ),
+    coverage_filter: CoverageFilter = typer.Option(
+        CoverageFilter.ALL,
+        "--coverage",
+        case_sensitive=False,
+        help="Limit results to 'full' coverage or include all coverage levels.",
+    ),
+    skip_journals: List[str] = typer.Option(
+        None,
+        "--skip-journal",
+        "--skip",
+        help="Journal key or name to exclude (repeatable). Useful with --journal all.",
+        show_default=False,
+    ),
 ) -> None:
     """
     Surface the most relevant recent papers for the chosen journals.
@@ -162,6 +201,28 @@ def radar(
 
     keyword_list = _normalise_keywords(keywords)
     journal_configs = resolve_journals(journals)
+    if skip_journals:
+        skip_lookup: set[str] = set()
+        canonical = {}
+        for journal in DEFAULT_JOURNALS:
+            canonical[journal.key.lower()] = journal.name.lower()
+            canonical[journal.name.lower()] = journal.name.lower()
+            canonical[journal.container_title.lower()] = journal.name.lower()
+        for token in skip_journals:
+            lowered = token.lower()
+            skip_lookup.add(canonical.get(lowered, lowered))
+        filtered = []
+        for journal in journal_configs:
+            key = journal.name.lower()
+            if key in skip_lookup:
+                continue
+            if journal.key.lower() in skip_lookup or journal.container_title.lower() in skip_lookup:
+                continue
+            filtered.append(journal)
+        journal_configs = filtered
+        if not journal_configs:
+            console.print("[red]No journals remaining after applying --skip filters.[/red]")
+            raise typer.Exit(1)
 
     console.print(
         f"[bold]Scanning[/bold] {len(journal_configs)} journal(s) for "
@@ -197,12 +258,37 @@ def radar(
             continue
         if days > 0 and paper.age_days is not None and paper.age_days > days:
             continue
+        if paper.match_count == 0:
+            continue
         filtered.append(paper)
 
     papers = filtered
 
     ordered = _sort_papers(papers, sort_strategy)
-    top_papers = ordered[:max_results]
+    total_keywords = len(keyword_list)
+    coverage_buckets = _bucket_by_coverage(ordered, total_keywords)
+
+    selected: List[Paper] = []
+    if coverage_filter is CoverageFilter.FULL:
+        selected = coverage_buckets.get("full", [])[:max_results]
+    else:
+        # seed with one item from each coverage bucket if available
+        temp_buckets = {level: bucket[:] for level, bucket in coverage_buckets.items()}
+        for level in ["full", "near", "partial", "single"]:
+            bucket = temp_buckets.get(level)
+            if bucket and len(selected) < max_results:
+                selected.append(bucket.pop(0))
+        # fill remaining slots with overall ordering
+        seen = {id(p) for p in selected}
+        for paper in ordered:
+            if len(selected) >= max_results:
+                break
+            if id(paper) in seen:
+                continue
+            selected.append(paper)
+            seen.add(id(paper))
+
+    top_papers = selected
 
     journal_names = [journal.name for journal in journal_configs]
 
@@ -212,6 +298,7 @@ def radar(
         "sort": sort_strategy.value.title(),
         "format": report_format.value.upper(),
         "journal_count": str(len(journal_names)),
+        "coverage": coverage_filter.value,
     }
 
     if report_format is ReportFormat.CLI:

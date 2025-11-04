@@ -68,6 +68,23 @@ def _group_by_coverage(papers: Sequence[Paper], total_keywords: int) -> Dict[str
     return {level: groups[level] for level in ["full", "near", "partial", "single"] if groups[level]}
 
 
+def _match_descriptor(items: Sequence[Paper], total_keywords: int) -> str:
+    if total_keywords <= 0:
+        return "no keywords configured"
+    counts = sorted({max(0, min(total_keywords, paper.match_count)) for paper in items})
+    plural = "" if total_keywords == 1 else "s"
+    if not counts:
+        return f"0 of {total_keywords} keyword{plural} matched"
+    if len(counts) == 1:
+        count = counts[0]
+        if count >= total_keywords:
+            return f"all {total_keywords} keyword{plural} matched"
+        if count == 0:
+            return f"0 of {total_keywords} keyword{plural} matched"
+        return f"{count} of {total_keywords} keyword{plural} matched"
+    return f"{counts[0]}–{counts[-1]} of {total_keywords} keyword{plural} matched"
+
+
 def render_cli_report(
     console: Console,
     papers: Sequence[Paper],
@@ -89,38 +106,35 @@ def render_cli_report(
     bullet = "✦"
 
     console.print(Text(f"{bullet} Keywords: {', '.join(f'\"{kw}\"' for kw in keywords_list)}", style="cyan"))
-    journal_count = options.get('journal_count', str(len(journals_list)))
-    console.print(
-        Text(
-            f"{bullet} Journals ({journal_count}): {', '.join(f'\"{name}\"' for name in journals_list)}",
-            style="magenta",
-        )
-    )
     console.print(Text(f"{bullet} Days window: {options.get('days', 'n/a')}", style="cyan"))
     console.print(Text(f"{bullet} Limit: {options.get('limit', 'n/a')}", style="cyan"))
     console.print(Text(f"{bullet} Sort: {options.get('sort', 'score')}", style="cyan"))
-    console.print(Text(f"{bullet} Format: {options.get('format', 'CLI')}", style="cyan"))
+    coverage_mode = options.get('coverage', 'all')
+    console.print(Text(f"{bullet} Coverage: {coverage_mode.title()}", style="cyan"))
+
+    hits = {paper.journal for paper in papers}
+    journal_buffer = [f"[{name}]" if name in hits else name for name in journals_list]
+    journal_count = options.get('journal_count', str(len(journals_list)))
+    console.print(Text(f"{bullet} Journals searched ({journal_count})", style="magenta"))
+    if journal_buffer:
+        per_line = 4
+        chunks = [" | ".join(journal_buffer[i:i + per_line]) for i in range(0, len(journal_buffer), per_line)]
+        for chunk in chunks:
+            console.print(Text(f"    {chunk}", style="magenta"))
     console.print()
 
     total_keywords = len(keywords_list)
     groups = _group_by_coverage(papers, total_keywords)
 
-    coverage_titles = {
-        "full": "Full coverage (all {n} keyword{plural} matched)",
-        "near": "Near full coverage ({matched_text})",
-        "partial": "Partial coverage ({matched_text})",
-        "single": "Single keyword coverage ({matched_text})",
+    coverage_base_titles = {
+        "full": "Full coverage",
+        "near": "Near full coverage",
+        "partial": "Partial coverage",
+        "single": "Single keyword coverage",
     }
 
     if not papers:
         console.print(Text("No papers matched the filters.", style="yellow"))
-        if missing_journals:
-            console.print(
-                Text(
-                    f"No matches returned for: {', '.join(missing_journals)}",
-                    style="dim",
-                )
-            )
         return
 
     if groups:
@@ -132,13 +146,16 @@ def render_cli_report(
             ascii_rows = _ascii_plot(_summarise_by_journal(items))
             if not ascii_rows:
                 continue
-            console.print(Text(f"{coverage_titles.get(level, level.title())}", style="bold magenta"))
+            descriptor = _match_descriptor(items, total_keywords)
+            coverage_title = f"{coverage_base_titles.get(level, level.title())} ({descriptor})"
+            console.print(Text(coverage_title, style="bold magenta"))
             for line in ascii_rows:
                 console.print(Text(line, style="green"))
             console.print()
 
     for level, items in groups.items():
-        title = coverage_titles.get(level, level.title())
+        descriptor = _match_descriptor(items, total_keywords)
+        title = f"{coverage_base_titles.get(level, level.title())} ({descriptor})"
         table = Table(
             show_lines=False,
             box=box.SIMPLE_HEAD,
@@ -178,13 +195,6 @@ def render_cli_report(
         console.print(table)
         console.print()
 
-    if missing_journals:
-        console.print(
-            Text(
-                f"No matches returned for: {', '.join(missing_journals)}",
-                style="dim",
-            )
-        )
 
 
 def write_html_report(
@@ -206,34 +216,55 @@ def write_html_report(
     keywords_list = list(keywords)
     journals_list = list(journals)
     keywords_display = ", ".join(f'"{kw}"' for kw in keywords_list)
-    journals_display = ", ".join(journals_list)
 
+    hits = {paper.journal for paper in papers}
     meta_entries = [
         f"✦ Keywords: {keywords_display}",
-        f"✦ Journals ({options.get('journal_count', str(len(journals_list)))}): {', '.join(f'\"{name}\"' for name in journals_list)}",
         f"✦ Days window: {options.get('days', 'n/a')}",
         f"✦ Limit: {options.get('limit', 'n/a')}",
         f"✦ Sort: {options.get('sort', 'score')}",
-        f"✦ Format: {options.get('format', 'web').upper()}",
+        f"✦ Coverage: {options.get('coverage', 'all').title()}",
     ]
-    meta_list = "".join(f"<li>{escape(item)}</li>" for item in meta_entries)
+    meta_html = [f"<li>{escape(item)}</li>" for item in meta_entries]
+    meta_html.append(f"<li>✦ Generated: {escape(generated)}</li>")
+    journal_fragments: list[str] = []
+    for index, name in enumerate(journals_list):
+        if index:
+            journal_fragments.append("<span class=\"journal-sep\">|</span>")
+        classes = ["journal-pill"]
+        if name in hits:
+            classes.append("hit")
+        journal_fragments.append(
+            f"<span class=\"{' '.join(classes)}\">{escape(name)}</span>"
+        )
+    journal_body = "".join(journal_fragments)
+    journal_label = escape(f"✦ Journals searched ({options.get('journal_count', str(len(journals_list)))})")
+    meta_html.append(
+        "<li class=\"journal-block\">"
+        f"<span class=\"journal-block-label\">{journal_label}</span>"
+        f"<div class=\"journal-pill-wrap\">{journal_body}</div>"
+        "</li>"
+    )
+    meta_list = "".join(meta_html)
 
     coverage_groups = _group_by_coverage(papers, len(keywords_list))
     summary_sections: list[str] = []
+    summary_base_titles = {
+        "full": "Journal summary — full coverage",
+        "near": "Journal summary — near coverage",
+        "partial": "Journal summary — partial coverage",
+        "single": "Journal summary — single keyword",
+    }
     for level, items in coverage_groups.items():
         rows = _ascii_plot(_summarise_by_journal(items))
         if not rows:
             continue
         summary_body = escape("\n".join(rows))
-        title_map = {
-            "full": "Journal summary — full coverage",
-            "near": "Journal summary — near coverage",
-            "partial": "Journal summary — partial coverage",
-            "single": "Journal summary — single keyword",
-        }
+        descriptor = _match_descriptor(items, len(keywords_list))
+        title = f"{summary_base_titles.get(level, level.title())} ({descriptor})"
         summary_sections.append(
             "<section class=\"summary\">"
-            f"<h2>{title_map.get(level, level.title())}</h2>"
+            f"<h2>{escape(title)}</h2>"
             f"<pre class=\"summary-plot\">{summary_body}</pre>"
             "</section>"
         )
@@ -242,14 +273,15 @@ def write_html_report(
     cards: list[str] = []
     if coverage_groups:
         cards.append("<section class=\"coverage-groups\">")
+    coverage_base_titles = {
+        "full": "Full coverage",
+        "near": "Near full coverage",
+        "partial": "Partial coverage",
+        "single": "Single keyword coverage",
+    }
     for level, items in coverage_groups.items():
-        title_map = {
-            "full": "Full coverage (all keywords matched)",
-            "near": "Near full coverage",
-            "partial": "Partial coverage",
-            "single": "Single keyword coverage",
-        }
-        cards.append(f"<h2 class=\"coverage-heading\">{title_map.get(level, level.title())}</h2>")
+        descriptor = _match_descriptor(items, len(keywords_list))
+        cards.append(f"<h2 class=\"coverage-heading\">{coverage_base_titles.get(level, level.title())} ({escape(descriptor)})</h2>")
         for paper in items:
             authors = ", ".join(paper.authors[:6]) or "Unknown authors"
             if len(paper.authors) > 6:
@@ -289,11 +321,6 @@ def write_html_report(
     if coverage_groups:
         cards.append("</section>")
 
-    missing_entry = ""
-    if missing_journals:
-        missing_list = escape(", ".join(missing_journals))
-        missing_entry = f'<li class="missing">✦ No recent matches for: {missing_list}</li>'
-
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -324,10 +351,61 @@ def write_html_report(
             list-style: none;
             padding: 0;
             margin: 0 0 1rem 0;
+            column-count: 2;
+            column-gap: 1.4rem;
+        }}
+        @media (max-width: 720px) {{
+            .meta-list {{
+                column-count: 1;
+            }}
         }}
         .meta-list li {{
             margin: 0.25rem 0;
             color: var(--muted);
+            break-inside: avoid;
+        }}
+        .journal-block {{
+            column-span: all;
+            margin-top: 0.75rem;
+        }}
+        .journal-block-label {{
+            display: block;
+            margin-bottom: 0.4rem;
+            color: var(--muted);
+        }}
+        .journal-pill-wrap {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            align-items: center;
+        }}
+        .journal-sep {{
+            display: inline-flex;
+            align-items: center;
+            padding: 0 0.2rem;
+            color: var(--muted);
+            opacity: 0.55;
+            font-size: 0.95rem;
+        }}
+        .journal-pill {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.2rem 0.65rem;
+            border-radius: 0.45rem;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            background: rgba(0, 255, 144, 0.04);
+            letter-spacing: 0.05em;
+        }}
+        .journal-pill.hit {{
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 255, 144, 0.12);
+            box-shadow: 0 0 0 1px rgba(0, 255, 144, 0.08);
+        }}
+        .meta-list li.journal-item {{
+            color: var(--text);
         }}
         .summary {{
             margin-bottom: 1.8rem;
@@ -455,8 +533,6 @@ def write_html_report(
         <h1>GiveLit Radar</h1>
         <ul class="meta-list">
             {meta_list}
-            <li>✦ Generated: {generated}</li>
-            {missing_entry}
         </ul>
     </header>
     <main>

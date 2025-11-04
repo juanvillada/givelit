@@ -30,6 +30,9 @@ pixi run givelit
 - Choose the ordering strategy with `--sort` (`score`, `recency`, or `journal`).
 - Trim the list with `--limit/-n`.
 - Generate a minimalist HTML report with `--format web --output path/to/report.html`.
+- Results always include the requested keywords—papers with zero keyword matches are filtered out automatically.
+- Use `--coverage full` when you only want papers that match every keyword.
+- Use `--skip-journal/-skip` to exclude specific journals (handy with `--journal all`).
 
 Example:
 
@@ -55,9 +58,24 @@ pixi run givelit \
   --limit 30 \
   --days 10 \
   --sort score \
+  --coverage full \
   --format web \
   --output outputs/metagenomics.html
 ```
+
+## CLI options at a glance
+
+| Option | Description |
+| --- | --- |
+| `--keyword/-k TEXT` | Add one or more search keywords (repeatable). |
+| `--journal/-j TEXT` | Restrict to a journal key/name (repeatable). Use `all` to scan every built-in journal. |
+| `--limit/-n INT` | Maximum number of results to include (default 12). |
+| `--days/-d INT` | Only include papers published in the last N days; `0` disables the cutoff. |
+| `--sort TEXT` | Sorting mode: `score` (default), `recency`, or `journal`. |
+| `--coverage TEXT` | Coverage filter: `all` (default) shows every match level; `full` keeps only full keyword matches. |
+| `--format TEXT` | Output mode: `cli` (default) or `web`. |
+| `--skip-journal/-skip TEXT` | Exclude a journal key/name from the search (repeatable). |
+| `--output PATH` | Destination for the HTML report; omit to auto-generate a timestamped file. |
 
 ## Built-in journal keywords
 
